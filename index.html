@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link rel="stylesheet" type="text/css" href="css/style.css">
+    <script src="https://code.createjs.com/createjs-2015.05.21.min.js"></script>
+    <script src="js/Game.js"></script>
+    <script src="js/Player.js"></script>
+    <script src="js/PowerBar.js"></script>
+    <script src="js/QandAUI.js"></script>
+    <script src="js/Questions.js"></script>
+    <script src="js/CustomMethods.js"></script>
+    <script>
+
+        "use strict";
+        let stage;
+        let queue;
+        let game;
+        let percentLoaded;
+        let lang;
+        let loading;
+
+        function init(){
+
+            const url = document.location.href;
+            const param = url.split("?");
+            lang = param[1].split("=")[1];
+
+            stage = new createjs.Stage(document.getElementById("gameStage"));
+            queue = new createjs.LoadQueue(false);
+            createjs.Sound.alternateExtensions = ["mp3"];
+            queue.installPlugin(createjs.Sound); // this enables SoundJS to just play sound without registering
+            createjs.MotionGuidePlugin.install(); // this enables missile path
+
+            const x = (1920/2);
+            const y = (1080/2);
+
+            percentLoaded = new createjs.Text("" , "44px Pixel" , "white");
+            percentLoaded.textAlign = "center";
+            percentLoaded.textBaseline = "middle";
+            percentLoaded.x = x;
+            percentLoaded.y = y;
+
+            let background = new createjs.Shape();
+            background.graphics.beginFill("black").drawRect(0,0,1920,1080);
+
+            loading = new createjs.Shape();
+            loading.x = x;
+            loading.y = y;
+            loading.rotation = -90;
+            stage.addChild(background,loading,percentLoaded);
+            startAssetsLoading();
+
+            if(createjs.Touch.isSupported()) {                        // maybe this should be in loadcomplete in if
+                stage.addEventListener("click",function doResize(){
+                    stage.removeEventListener("click",doResize);
+                    requestFullScreen();
+                });
+            }
+        }
+
+        function startAssetsLoading() {
+            queue.on("complete", loadComplete);
+            queue.on("progress", handleProgress);
+            queue.loadManifest([
+                {id: "infoPage", src:"images/backgrounds/info.jpg"},
+                {id: "infoPagesrb", src:"images/backgrounds/infosrb.jpg"},
+                {id: "background", src:"images/backgrounds/background.jpg"},
+                {id: "gameOver", src:"images/backgrounds/gameOver.jpg"},
+                {id: "tank1", src:"images/playersComponents/tank1.png"},
+                {id: "tank2", src:"images/playersComponents/tank2.png"},
+                {id: "plane1", src:"images/playersComponents/plane1.png"},
+                {id: "plane2", src:"images/playersComponents/plane2.png"},
+                {id: "bomb1", src:"images/playersComponents/bomb1.png"},
+                {id: "bomb2", src:"images/playersComponents/bomb2.png"},
+                {id: "gun1", src:"images/playersComponents/gun1.png"},
+                {id: "gun2", src:"images/playersComponents/gun2.png"},
+                {id: "missile", src:"images/playersComponents/missile.png"},
+                {id: "health", src:"images/playersComponents/health.png"},
+                {id: "damage", src:"images/playersComponents/damage.png"},
+                {id: "meterBody", src:"images/playersComponents/meterBody.jpg"},
+                {id: "meter", src:"images/playersComponents/meter.jpg"},
+
+                {id: "smoke", src:"images/sheets/smoke.png"},
+                {id: "groundHit", src:"images/sheets/groundHit.png"},
+                {id: "enemyHit", src:"images/sheets/enemyHit.png"},
+                {id: "buildingHit", src:"images/sheets/buildingHit.png"},
+                {id: "player1explosion", src:"images/sheets/tank1explosion.png"},
+                {id: "player2explosion", src:"images/sheets/tank2explosion.png"},
+
+                {id: "building1", src:"images/buildings/building1.png"},
+                {id: "building2", src:"images/buildings/building2.png"},
+                {id: "building3", src:"images/buildings/building3.png"},
+                {id: "building4", src:"images/buildings/building4.png"},
+                {id: "building5", src:"images/buildings/building5.png"},
+                {id: "building6", src:"images/buildings/building6.png"},
+
+                {id: "questionsBack", src:"images/qaui/questionsBack.jpg"},
+                {id: "answerBack", src:"images/qaui/answerBack.jpg"},
+                {id: "correctMark", src:"images/qaui/correctMark.png"},
+                {id: "incorrectMark", src:"images/qaui/incorrectMark.png"},
+                {id: "airStrikeIcon", src:"images/qaui/airStrikeIcon.png"},
+
+                {id: "launchMissileSound", src:"sounds/launchMissile.ogg"},
+                {id: "buildingHitSound", src:"sounds/buildingHit.ogg"},
+                {id: "enemyHitSound", src:"sounds/enemyHit.ogg"},
+                {id: "groundHitSound", src:"sounds/groundHit.ogg"},
+                {id: "planeSound", src:"sounds/plane.ogg"},
+                {id: "airStrikeReadySound", src:"sounds/airStrikeReady.ogg"},
+                {id: "gameOverSound", src:"sounds/gameOver.ogg"},
+                {id: "damageUpSound", src:"sounds/damageUp.ogg"},
+                {id: "selectAnswerSound", src:"sounds/selectAnswer.ogg"},
+                {id: "backgroundSound", src:"sounds/background.ogg"}
+            ]);
+        }
+
+        function handleProgress(event){
+            percentLoaded.text = Math.round(event.progress* 100) + " %";
+            let fill = Math.round(event.progress * 360);
+            loading.graphics.clear().setStrokeStyle(20).beginStroke("#d0ff00").arc(0, 0, 150, 0, (Math.PI/180)*fill).endStroke();
+            stage.update();
+        }
+
+        function loadComplete() {
+            stage.removeAllChildren();
+            percentLoaded = null;
+            let infoBack = lang === "srb" ? "infoPagesrb" : "infoPage";
+            let infoPage = new createjs.Bitmap(queue.getResult(infoBack));
+            infoPage.on("click" , (e)=>{
+                stage.removeAllChildren();
+                infoPage = null;
+                game = new Game(lang);
+                stage.addChild(game);
+                setupStage();
+            });
+
+            stage.addChild(infoPage);
+            stage.update();
+
+            if(createjs.Touch.isSupported()) {
+                createjs.Touch.enable(stage);
+            }
+
+            //playerId = null;
+            loading = null;
+        }
+
+        function setupStage(){
+            createjs.Ticker.timingMode = createjs.Ticker.RAF;
+            createjs.Ticker.addEventListener("tick", function(e){ // e needs because animation wont change framerate without it
+                game.render(e);
+            });
+        }
+
+        function requestFullScreen() {
+            let el = document.documentElement,
+                    rfs = el.requestFullscreen
+                            || el.webkitRequestFullscreen
+                            || el.mozRequestFullScreen
+                            || el.msRequestFullscreen;
+            rfs.call(el);
+        }
+
+        function resize(){
+            let cont = document.getElementById("gameStage");
+            let c = cont.getContext("2d");
+            let w = 1920 / (1920/window.innerWidth);
+            let h = 1080 / (1080/window.innerHeight);
+
+            c.width = w;
+            c.height = h;
+        }
+
+        document.onreadystatechange = () => {
+            if (document.readyState === 'complete') {
+                resize();
+                window.addEventListener('resize', resize);
+            }
+        };
+
+    </script>
+
+</head>
+<body onload="init();" oncontextmenu="return false">
+
+<div class="container">
+    <canvas id="gameStage" width="1920" height="1080"></canvas>
+</div>
+</body>
+</html>
